@@ -1,0 +1,172 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum UserRole {
+  DOCTOR
+  PA
+  PATIENT
+  ADMIN
+}
+
+enum AssessmentStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum StepType {
+  QUESTION
+  INFORMATION
+  CONSENT
+  MEDIA
+  CHECKOUT
+  APPOINTMENT
+  LAB_ORDER
+  PROVIDER_REVIEW
+  EXTERNAL_LINK
+}
+
+enum ResponseStatus {
+  DRAFT
+  COMPLETED
+}
+
+// Core Models
+model Practice {
+  id          Int       @id @default(autoincrement())
+  name        String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  users       User[]
+  assessments Assessment[]
+}
+
+model User {
+  id         Int       @id @default(autoincrement())
+  email      String    @unique
+  role       UserRole
+  practiceId Int?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  practice           Practice?            @relation(fields: [practiceId], references: [id])
+  createdAssessments Assessment[]
+  patientResponses   AssessmentResponse[]
+}
+
+model Assessment {
+  id           Int               @id @default(autoincrement())
+  title        String
+  description  String?
+  isTemplate   Boolean           @default(false)
+  status       AssessmentStatus  @default(DRAFT)
+  practiceId   Int
+  creatorId    Int
+  finalMessage String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  practice  Practice             @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  creator   User                 @relation(fields: [creatorId], references: [id])
+  versions  Version[]
+  responses AssessmentResponse[]
+}
+
+model Version {
+  id            Int      @id @default(autoincrement())
+  versionNumber Int
+  assessmentId  Int
+  createdAt     DateTime @default(now())
+
+  assessment Assessment    @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  flows      AssessmentFlow[]
+
+  @@unique([assessmentId, versionNumber])
+}
+
+// V2 Flow Models
+model AssessmentFlow {
+  id          Int  @id @default(autoincrement())
+  versionId   Int
+  startStepId Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  version     Version          @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  steps       FlowStep[]
+  transitions FlowTransition[]
+}
+
+model FlowStep {
+  id       Int      @id @default(autoincrement())
+  flowId   Int
+  type     StepType
+  title    String?
+  config   Json     // Step-specific configuration
+  position Json?    // UI positioning for flow builder
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  flow      AssessmentFlow   @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  outgoing  FlowTransition[] @relation("FromStep")
+  incoming  FlowTransition[] @relation("ToStep")
+  responses StepResponse[]
+}
+
+model FlowTransition {
+  id         Int  @id @default(autoincrement())
+  flowId     Int
+  fromStepId Int
+  toStepId   Int
+  condition  Json? // Complex conditional logic
+  order      Int   // Priority for multiple conditions
+  createdAt  DateTime @default(now())
+
+  flow     AssessmentFlow @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  fromStep FlowStep       @relation("FromStep", fields: [fromStepId], references: [id], onDelete: Cascade)
+  toStep   FlowStep       @relation("ToStep", fields: [toStepId], references: [id], onDelete: Cascade)
+}
+
+// Response Models
+model AssessmentResponse {
+  id           Int            @id @default(autoincrement())
+  patientId    Int
+  assessmentId Int
+  versionId    Int
+  status       ResponseStatus @default(DRAFT)
+  startedAt    DateTime       @default(now())
+  completedAt  DateTime?
+  notes        String?
+  metadata     Json?          // Session data, progress tracking, etc.
+
+  patient   User           @relation(fields: [patientId], references: [id])
+  assessment Assessment   @relation(fields: [assessmentId], references: [id])
+  responses StepResponse[]
+
+  @@index([patientId, status])
+  @@index([assessmentId, versionId])
+}
+
+model StepResponse {
+  id                   Int       @id @default(autoincrement())
+  assessmentResponseId Int
+  stepId               Int
+  data                 Json      // Flexible response data
+  completedAt          DateTime?
+  metadata             Json?     // Telemetry, timing data, etc.
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  assessmentResponse AssessmentResponse @relation(fields: [assessmentResponseId], references: [id], onDelete: Cascade)
+  step               FlowStep           @relation(fields: [stepId], references: [id])
+
+  @@index([assessmentResponseId, stepId])
+}

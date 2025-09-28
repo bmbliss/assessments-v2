@@ -407,7 +407,7 @@ pnpm install
 2. **Database Setup**
 ```bash
 # Add to .env
-DATABASE_URL="postgresql://user:password@localhost:5432/assessments_v2"
+DATABASE_URL="postgresql://user:password@localhost:5433/assessments_v2"
 
 # Install Prisma
 pnpm add prisma @prisma/client

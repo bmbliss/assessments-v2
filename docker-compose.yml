@@ -2,7 +2,7 @@ services:
   # PostgreSQL Database
   postgres:
     image: postgres:15
-    container_name: assessments-postgres
+    container_name: assessments-v2-postgres
     environment:
       POSTGRES_DB: assessments_v2
       POSTGRES_USER: postgres
@@ -21,7 +21,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: assessments-nextjs
+    container_name: assessments-v2-nextjs
     ports:
       - "3232:3000"
     environment:
@@ -48,7 +48,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: assessments-prisma-studio
+    container_name: assessments-v2-prisma-studio
     ports:
       - "5555:5555"
     environment:
