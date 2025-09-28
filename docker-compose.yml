@@ -1,0 +1,72 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    container_name: assessments-postgres
+    environment:
+      POSTGRES_DB: assessments_v2
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password123
+      PGPORT: 5433
+    ports:
+      - "5433:5433"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d
+    networks:
+      - assessments-network
+
+  # Next.js Application
+  nextjs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: assessments-nextjs
+    ports:
+      - "3232:3000"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:password123@postgres:5433/assessments_v2
+      - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      - CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
+      - NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+      - NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+      - NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/dashboard
+      - NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/dashboard
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - postgres
+    networks:
+      - assessments-network
+    command: npm run dev
+
+  # Prisma Studio (optional, for database GUI)
+  prisma-studio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: assessments-prisma-studio
+    ports:
+      - "5555:5555"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password123@postgres:5433/assessments_v2
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      - postgres
+    networks:
+      - assessments-network
+    command: npx prisma studio --port 5555 --hostname 0.0.0.0
+    profiles:
+      - tools
+
+volumes:
+  postgres_data:
+
+networks:
+  assessments-network:
+    driver: bridge

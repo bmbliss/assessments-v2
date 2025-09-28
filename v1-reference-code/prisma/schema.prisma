@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums for reusability
+enum UserRole {
+  DOCTOR
+  PA
+  PATIENT
+  ADMIN // For practice admins
+}
+
+enum AssessmentStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum QuestionType {
+  TEXT
+  NUMBER
+  DATE
+  SINGLE_SELECT // e.g., dropdown/radio
+  MULTI_SELECT // checkboxes
+  SLIDER
+  FILE_UPLOAD // S3 URL in answer
+  // Add more as needed, e.g., BOOLEAN
+}
+
+enum ResponseStatus {
+  DRAFT
+  COMPLETED
+}
+
+// Core Models
+
+model Practice {
+  id          Int       @id @default(autoincrement())
+  name        String
+  // Other fields: address, etc.
+
+  users       User[]    // Providers and patients? Or separate if patients global
+  assessments Assessment[]
+}
+
+model User {
+  id         Int       @id @default(autoincrement())
+  email      String    @unique
+  role       UserRole
+  practiceId Int?      // If users belong to practices; make required if not global
+
+  practice   Practice? @relation(fields: [practiceId], references: [id])
+  createdAssessments Assessment[] // For doctors creating them
+  patientResponses   AssessmentResponse[] // For patients
+}
+
+model Assessment {
+  id           Int          @id @default(autoincrement())
+  title        String
+  description  String?
+  isTemplate   Boolean      @default(false) // Global templates
+  status       AssessmentStatus @default(DRAFT)
+  practiceId   Int
+  creatorId    Int          // Doctor/PA who created/forked it
+  finalMessage String?      // Custom success message
+
+  practice     Practice     @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  creator      User         @relation(fields: [creatorId], references: [id])
+  versions     Version[]
+  responses    AssessmentResponse[]
+
+  // For notes: If assessment-level (template), add here; but assuming per response, see below
+}
+
+model Version {
+  id            Int        @id @default(autoincrement())
+  versionNumber Int        // e.g., 1, 2...
+  assessmentId  Int
+  createdAt     DateTime   @default(now())
+
+  assessment    Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  questions     Question[]
+
+  @@unique([assessmentId, versionNumber]) // Enforce unique versions per assessment
+}
+
+model Question {
+  id                   Int           @id @default(autoincrement())
+  versionId            Int
+  order                Int           // For sequencing in UI
+  text                 String
+  type                 QuestionType
+  options              String?       // Comma-separated or JSON string for selects (e.g., "Yes,No"); avoid JSONB for now
+  validation           String?       // e.g., "required=true,min=0,max=100" – parse in app
+  dependsOnQuestionId  Int?          // For simple branching: references another Question
+  conditionValue       String?       // e.g., "Yes" or ">5" – app evaluates
+
+  version              Version       @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  dependsOn            Question?     @relation("QuestionDependency", fields: [dependsOnQuestionId], references: [id])
+
+  inverseDependencies  Question[]    @relation("QuestionDependency")
+  answers              Answer[]
+
+  @@index([versionId, order])
+}
+
+model AssessmentResponse {
+  id          Int             @id @default(autoincrement())
+  patientId   Int
+  assessmentId Int            // For grouping in UI
+  versionId   Int             // Ties to exact version taken
+  status      ResponseStatus  @default(DRAFT)
+  startedAt   DateTime        @default(now())
+  completedAt DateTime?
+  notes       String?         // Doctor notes per response
+
+  patient     User            @relation(fields: [patientId], references: [id])
+  assessment  Assessment      @relation(fields: [assessmentId], references: [id])
+  // version     Version         @relation(fields: [versionId], references: [id]) // Wait, Version is already related via assessment, but direct for queries
+
+  answers     Answer[]
+
+  @@index([patientId, status])
+  @@index([assessmentId, versionId])
+}
+
+model Answer {
+  id                 Int                 @id @default(autoincrement())
+  responseId         Int
+  questionId         Int
+  value              String?             // Text/number/date/select values
+  fileUrl            String?             // S3 link for uploads
+  answeredAt         DateTime            @default(now()) // Per-question timestamp for telemetry
+
+  response           AssessmentResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  question           Question            @relation(fields: [questionId], references: [id])
+
+  @@index([responseId, questionId])
+}
