@@ -15,17 +15,31 @@ export default function HomePage() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          <Card>
+            <CardHeader>
+              <CardTitle>Admin Panel</CardTitle>
+              <CardDescription>
+                Create and manage assessment flows, configure step types
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/admin">
+                <Button className="w-full">Admin Dashboard</Button>
+              </Link>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Provider Dashboard</CardTitle>
               <CardDescription>
-                Create and manage assessment flows, review patient responses
+                Review patient responses and manage clinical workflows
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Link href="/dashboard">
-                <Button className="w-full">Access Dashboard</Button>
+                <Button variant="outline" className="w-full">Provider View</Button>
               </Link>
             </CardContent>
           </Card>
