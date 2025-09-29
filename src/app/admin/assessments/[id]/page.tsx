@@ -53,6 +53,7 @@ export default function AssessmentEditPage({ params }: AssessmentEditPageProps) 
     finalMessage: '',
     status: 'DRAFT'
   })
+  const [publishing, setPublishing] = useState(false)
 
   useEffect(() => {
     fetchAssessment()
@@ -115,6 +116,60 @@ export default function AssessmentEditPage({ params }: AssessmentEditPageProps) 
     }))
   }
 
+  const handlePublish = async () => {
+    if (!assessment) return
+    
+    setPublishing(true)
+    setError(null)
+    
+    try {
+      const response = await fetch(`/api/admin/assessments/${assessment.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'ACTIVE' })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to publish assessment')
+      }
+
+      const updatedAssessment = await response.json()
+      // Preserve existing data and only update the status
+      setAssessment(prev => prev ? { ...prev, status: updatedAssessment.status } : updatedAssessment)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+    } finally {
+      setPublishing(false)
+    }
+  }
+
+  const handleUnpublish = async () => {
+    if (!assessment) return
+    
+    setPublishing(true)
+    setError(null)
+    
+    try {
+      const response = await fetch(`/api/admin/assessments/${assessment.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'DRAFT' })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to unpublish assessment')
+      }
+
+      const updatedAssessment = await response.json()
+      // Preserve existing data and only update the status
+      setAssessment(prev => prev ? { ...prev, status: updatedAssessment.status } : updatedAssessment)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+    } finally {
+      setPublishing(false)
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'ACTIVE': return 'bg-green-100 text-green-800'
@@ -161,7 +216,7 @@ export default function AssessmentEditPage({ params }: AssessmentEditPageProps) 
                   {assessment.status}
                 </Badge>
                 <span className="text-sm text-gray-500">
-                  {assessment.responses.length} responses
+                  {assessment.responses?.length || 0} responses
                 </span>
               </div>
             </div>
@@ -174,9 +229,30 @@ export default function AssessmentEditPage({ params }: AssessmentEditPageProps) 
               </Button>
               {currentFlow && (
                 <Button
+                  variant="outline"
                   onClick={() => router.push(`/portal/assessments/${assessment.id}`)}
                 >
                   Preview Assessment
+                </Button>
+              )}
+              {assessment.status === 'DRAFT' ? (
+                <Button
+                  onClick={handlePublish}
+                  disabled={publishing || !currentFlow}
+                  className="bg-green-600 hover:bg-green-700"
+                  title={!currentFlow ? 'Add some steps to the flow before publishing' : 'Make this assessment available to patients'}
+                >
+                  {publishing ? 'Publishing...' : 'Publish Assessment'}
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={handleUnpublish}
+                  disabled={publishing}
+                  className="border-orange-300 text-orange-700 hover:bg-orange-50"
+                  title="Move assessment back to draft status"
+                >
+                  {publishing ? 'Unpublishing...' : 'Unpublish (Move to Draft)'}
                 </Button>
               )}
             </div>
@@ -290,7 +366,7 @@ export default function AssessmentEditPage({ params }: AssessmentEditPageProps) 
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {assessment.responses.length > 0 ? (
+                {assessment.responses && assessment.responses.length > 0 ? (
                   <div className="space-y-4">
                     {assessment.responses.map((response) => (
                       <div key={response.id} className="border rounded-lg p-4">
