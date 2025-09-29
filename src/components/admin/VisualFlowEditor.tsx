@@ -29,11 +29,16 @@ import { TransitionEditor } from './TransitionEditor'
 // Custom Node Components
 function QuestionNode({ data, selected }: NodeProps) {
   return (
-    <div className={`bg-blue-100 border-2 rounded-lg p-3 min-w-48 shadow-md transition-all ${selected ? 'border-blue-500 shadow-lg ring-2 ring-blue-200' : 'border-blue-300'}`}>
+    <div className={`bg-blue-100 border-2 rounded-lg p-3 min-w-48 shadow-md transition-all ${selected ? 'border-blue-500 shadow-lg ring-2 ring-blue-200' : 'border-blue-300'} ${data.isStartStep ? 'ring-2 ring-green-400 border-green-500' : ''}`}>
       <Handle type="target" position={Position.Top} />
       <div className="flex items-center gap-2 mb-2">
         <div className="w-4 h-4 bg-blue-600 rounded" />
         <span className="font-medium text-blue-800">Question</span>
+        {data.isStartStep && (
+          <span className="bg-green-500 text-white text-xs px-2 py-1 rounded font-medium">
+            START
+          </span>
+        )}
       </div>
       <div className="text-sm text-blue-700 mb-2">
         {data.step.title || 'Untitled Question'}
@@ -48,11 +53,16 @@ function QuestionNode({ data, selected }: NodeProps) {
 
 function InformationNode({ data, selected }: NodeProps) {
   return (
-    <div className={`bg-green-100 border-2 rounded-lg p-3 min-w-48 shadow-md transition-all ${selected ? 'border-green-500 shadow-lg ring-2 ring-green-200' : 'border-green-300'}`}>
+    <div className={`bg-green-100 border-2 rounded-lg p-3 min-w-48 shadow-md transition-all ${selected ? 'border-green-500 shadow-lg ring-2 ring-green-200' : 'border-green-300'} ${data.isStartStep ? 'ring-2 ring-green-400 border-green-500' : ''}`}>
       <Handle type="target" position={Position.Top} />
       <div className="flex items-center gap-2 mb-2">
         <div className="w-4 h-4 bg-green-600 rounded" />
         <span className="font-medium text-green-800">Information</span>
+        {data.isStartStep && (
+          <span className="bg-green-500 text-white text-xs px-2 py-1 rounded font-medium">
+            START
+          </span>
+        )}
       </div>
       <div className="text-sm text-green-700">
         {data.step.title || 'Untitled Information'}
@@ -206,6 +216,8 @@ function VisualFlowEditorCore({ flowId, onStepEdit, onFlowChange, onStepCreate }
   const [editingTransition, setEditingTransition] = useState<any>(null)
   const [steps, setSteps] = useState<FlowStep[]>([])
   const [showTransitionEditor, setShowTransitionEditor] = useState(false)
+  const [startStepId, setStartStepId] = useState<number | null>(null)
+  const [settingStartStep, setSettingStartStep] = useState(false)
 
   useEffect(() => {
     fetchFlowData()
@@ -214,19 +226,22 @@ function VisualFlowEditorCore({ flowId, onStepEdit, onFlowChange, onStepCreate }
   const fetchFlowData = async () => {
     try {
       setLoading(true)
-      const [stepsResponse, transitionsResponse] = await Promise.all([
+      const [stepsResponse, transitionsResponse, flowResponse] = await Promise.all([
         fetch(`/api/admin/flows/${flowId}/steps`),
-        fetch(`/api/admin/flows/${flowId}/transitions`)
+        fetch(`/api/admin/flows/${flowId}/transitions`),
+        fetch(`/api/admin/flows/${flowId}`)
       ])
 
-      if (!stepsResponse.ok || !transitionsResponse.ok) {
+      if (!stepsResponse.ok || !transitionsResponse.ok || !flowResponse.ok) {
         throw new Error('Failed to fetch flow data')
       }
 
       const stepsData = await stepsResponse.json()
       const transitionsData = await transitionsResponse.json()
+      const flowData = await flowResponse.json()
 
       setSteps(stepsData)
+      setStartStepId(flowData.startStepId)
 
       // Convert steps to React Flow nodes
       const flowNodes: Node[] = stepsData.map((step: any, index: number) => ({
@@ -238,7 +253,8 @@ function VisualFlowEditorCore({ flowId, onStepEdit, onFlowChange, onStepCreate }
         },
         data: { 
           step,
-          label: step.title || `${step.type} Step`
+          label: step.title || `${step.type} Step`,
+          isStartStep: step.id === flowData.startStepId
         },
       }))
 
@@ -412,6 +428,44 @@ function VisualFlowEditorCore({ flowId, onStepEdit, onFlowChange, onStepCreate }
     [flowId]
   )
 
+  const handleSetStartStep = useCallback(
+    async (stepId: number) => {
+      setSettingStartStep(true)
+      try {
+        const response = await fetch(`/api/admin/flows/${flowId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ startStepId: stepId })
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to set start step')
+        }
+
+        setStartStepId(stepId)
+        
+        // Update nodes to reflect the new start step
+        setNodes(current => 
+          current.map(node => ({
+            ...node,
+            data: {
+              ...node.data,
+              isStartStep: parseInt(node.id) === stepId
+            }
+          }))
+        )
+
+        onFlowChange?.()
+      } catch (err) {
+        console.error('Error setting start step:', err)
+        setError('Failed to set start step')
+      } finally {
+        setSettingStartStep(false)
+      }
+    },
+    [flowId, onFlowChange, setNodes]
+  )
+
   const onNodesChangeWithSave = useCallback(
     (changes: any) => {
       onNodesChange(changes)
@@ -493,7 +547,7 @@ function VisualFlowEditorCore({ flowId, onStepEdit, onFlowChange, onStepCreate }
       <div className="p-4 bg-white border-t">
         <div className="flex items-center justify-between">
           <div className="text-sm text-gray-600">
-            💡 <strong>Tip:</strong> Double-click to edit • Drag to connect • Select & press Delete/Backspace to remove • Click "Conditional" badges to edit logic
+            💡 <strong>Tip:</strong> Double-click to edit • Drag to connect • Select & press Delete/Backspace to remove
           </div>
           <Button onClick={fetchFlowData} variant="outline" size="sm">
             Refresh

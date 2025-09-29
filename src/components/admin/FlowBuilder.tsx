@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { StepEditor } from './StepEditor'
 import { VisualFlowEditor } from './VisualFlowEditor'
+import { StartStepSelector } from './StartStepSelector'
 
 interface FlowStep {
   id: number
@@ -215,6 +216,31 @@ export function FlowBuilder({ flowId, onFlowChange }: FlowBuilderProps) {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Flow Start Step Configuration */}
+            {steps.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <span className="w-3 h-3 bg-green-500 rounded-full"></span>
+                    Flow Start Configuration
+                  </CardTitle>
+                  <CardDescription>
+                    Set which step should be the first step when patients begin this assessment
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <StartStepSelector 
+                    flowId={flowId}
+                    steps={steps}
+                    onStartStepChange={() => {
+                      // Refresh flow data when start step changes
+                      fetchFlowData()
+                    }}
+                  />
+                </CardContent>
+              </Card>
+            )}
 
             {/* Visual Flow Editor */}
             <Card>
