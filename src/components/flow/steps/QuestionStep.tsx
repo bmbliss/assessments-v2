@@ -31,7 +31,9 @@ interface QuestionStepProps {
 
 export function QuestionStep({ config, onChange, value }: QuestionStepProps) {
   const [localValue, setLocalValue] = useState(value || '')
-  const [selectedOptions, setSelectedOptions] = useState<string[]>(value || [])
+  const [selectedOptions, setSelectedOptions] = useState<string[]>(
+    Array.isArray(value) ? value : []
+  )
 
   useEffect(() => {
     if (config.questionType === 'multi_select') {

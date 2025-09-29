@@ -233,6 +233,20 @@ async function main() {
     },
   })
 
+  const under18Step = await prisma.flowStep.create({
+    data: {
+      flowId: flow.id,
+      type: StepType.INFORMATION,
+      title: 'Age Requirement Not Met',
+      config: {
+        content: '# Sorry, You Must Be 18 or Older\n\nWe appreciate your interest in our TRT assessment. However, this evaluation is only available for individuals who are 18 years of age or older.\n\n**Why this requirement exists:**\n- Medical safety and legal compliance\n- Testosterone therapy is typically not recommended for minors\n- Proper medical supervision is required\n\n**What you can do:**\n- Wait until you turn 18 to complete this assessment\n- Consult with your primary care physician about any health concerns\n- Focus on healthy lifestyle habits (exercise, nutrition, sleep)\n\nThank you for understanding.',
+        format: 'markdown',
+        continueButton: 'Return to Home'
+      },
+      position: { x: 300, y: 300 }
+    },
+  })
+
   const lowSymptomsStep = await prisma.flowStep.create({
     data: {
       flowId: flow.id,
@@ -267,11 +281,27 @@ async function main() {
             stepId: ageStep.id,
             operator: 'greater_than_or_equal',
             value: 18,
-            path: 'data.value'
+            path: 'value'
           }],
           logic: 'AND'
         },
         order: 1
+      },
+      // Age -> Under 18 Message (if age < 18)
+      {
+        flowId: flow.id,
+        fromStepId: ageStep.id,
+        toStepId: under18Step.id,
+        condition: {
+          rules: [{
+            stepId: ageStep.id,
+            operator: 'less_than',
+            value: 18,
+            path: 'value'
+          }],
+          logic: 'AND'
+        },
+        order: 2
       },
       // Symptoms -> Severity
       {
@@ -290,7 +320,7 @@ async function main() {
             stepId: severityStep.id,
             operator: 'in',
             value: ['moderate', 'severe', 'very_severe'],
-            path: 'data.value'
+            path: 'value'
           }],
           logic: 'AND'
         },
@@ -306,7 +336,7 @@ async function main() {
             stepId: severityStep.id,
             operator: 'equals',
             value: 'mild',
-            path: 'data.value'
+            path: 'value'
           }],
           logic: 'AND'
         },
