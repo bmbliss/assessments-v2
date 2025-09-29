@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { db as prisma } from '@/lib/db'
 
 // PUT /api/admin/flows/[flowId]/transitions/[transitionId] - Update transition
 export async function PUT(

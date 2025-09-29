@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { db as prisma } from '@/lib/db'
 
 // GET /api/admin/flows/[flowId]/transitions - Get all transitions for a flow
 export async function GET(
