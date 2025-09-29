@@ -145,11 +145,13 @@ model AssessmentResponse {
   startedAt    DateTime       @default(now())
   completedAt  DateTime?
   notes        String?
+  reviewedBy   String?        // Provider who reviewed this response
+  reviewedAt   DateTime?      // When the response was reviewed
   metadata     Json?          // Session data, progress tracking, etc.
 
   patient   User           @relation(fields: [patientId], references: [id])
   assessment Assessment   @relation(fields: [assessmentId], references: [id])
-  responses StepResponse[]
+  stepResponses StepResponse[]
 
   @@index([patientId, status])
   @@index([assessmentId, versionId])

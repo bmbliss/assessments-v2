@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { FlowBuilder } from '@/components/admin/FlowBuilder'
+import { ResponseViewer } from '@/components/admin/ResponseViewer'
 
 interface Assessment {
   id: number
@@ -54,6 +55,7 @@ export default function AssessmentEditPage({ params }: AssessmentEditPageProps) 
     status: 'DRAFT'
   })
   const [publishing, setPublishing] = useState(false)
+  const [viewingResponseId, setViewingResponseId] = useState<number | null>(null)
 
   useEffect(() => {
     fetchAssessment()
@@ -360,42 +362,83 @@ export default function AssessmentEditPage({ params }: AssessmentEditPageProps) 
           <TabsContent value="responses">
             <Card>
               <CardHeader>
-                <CardTitle>Assessment Responses</CardTitle>
+                <CardTitle>Assessment Responses ({assessment.responses?.length || 0})</CardTitle>
                 <CardDescription>
-                  View patient responses to this assessment
+                  Review and manage patient responses to this assessment
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 {assessment.responses && assessment.responses.length > 0 ? (
                   <div className="space-y-4">
                     {assessment.responses.map((response) => (
-                      <div key={response.id} className="border rounded-lg p-4">
+                      <div key={response.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
                         <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-medium">{response.patient.email}</p>
-                            <p className="text-sm text-gray-600">
-                              Started: {new Date(response.startedAt).toLocaleString()}
-                            </p>
-                            {response.completedAt && (
-                              <p className="text-sm text-gray-600">
-                                Completed: {new Date(response.completedAt).toLocaleString()}
-                              </p>
-                            )}
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <p className="font-medium">{response.patient.email}</p>
+                              <Badge className={
+                                response.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
+                                response.status === 'REVIEWED' ? 'bg-blue-100 text-blue-800' :
+                                response.status === 'DRAFT' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-gray-100 text-gray-800'
+                              }>
+                                {response.status}
+                              </Badge>
+                            </div>
+                            <div className="text-sm text-gray-600 space-y-1">
+                              <p>Started: {new Date(response.startedAt).toLocaleString()}</p>
+                              {response.completedAt && (
+                                <p>Completed: {new Date(response.completedAt).toLocaleString()}</p>
+                              )}
+                              <p className="text-xs text-gray-500">Response ID: {response.id}</p>
+                            </div>
                           </div>
-                          <Badge className={response.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
-                            {response.status}
-                          </Badge>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setViewingResponseId(response.id)}
+                            >
+                              Review Response
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-gray-600">No responses yet</p>
+                  <div className="text-center py-12 text-gray-500">
+                    <div className="mb-4">
+                      <svg className="mx-auto h-12 w-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <p className="text-lg font-medium">No responses yet</p>
+                    <p className="text-sm mt-2">
+                      Responses will appear here when patients complete this assessment.
+                    </p>
+                    {assessment.status === 'DRAFT' && (
+                      <p className="text-sm mt-2 text-orange-600">
+                        💡 Remember to publish this assessment to make it available to patients.
+                      </p>
+                    )}
+                  </div>
                 )}
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Response Viewer Modal */}
+        {viewingResponseId && (
+          <ResponseViewer
+            responseId={viewingResponseId}
+            onClose={() => {
+              setViewingResponseId(null)
+              fetchAssessment() // Refresh to show any status updates
+            }}
+          />
+        )}
       </div>
     </div>
   )
